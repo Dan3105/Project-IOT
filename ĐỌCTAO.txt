@@ -1,0 +1,13 @@
+folder ArduinoCameraEsp32: chứa file arduino của camera, nhớ config lại pssid, ...
+folder Model: cái model của AI, cụ thể thì bé nó tên YOLOv8
+folder ServerHost: sẽ tiến hành demo cách camera gửi file hình ảnh (dạng binary) lên server
+
+các bước setup enviroment:
+1. Nếu có cam, nhớ setup lại config rồi upload
+2. Ở phần ServerHost, suggest tạo môi trường ảo python, rồi dùng lệnh: "pip install -r requirements.txt" để nó install các package cần thiết
+3. tại folder ServerHost mở cmd lên: >py server.py, đợi server load model và để camera connect tới server
+4. mở thêm một terminal chạy >node client.js nếu bị lỗi thì tải nodejs về), mục đích chỉ là khi mở 192.168.x.x:port(ở đây là port 8000)/client thì nó sẽ show hình ảnh của camera lên thôi.
+5. Enjoy cái moment này nhé ciao :3  
+
+** 192.168.x.x: cái ipv4 khi mở ipconfig
+** không đẩy cái folder của các package python và nodemodules, chỉ đẩy các file code của mình thôi 
