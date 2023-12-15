@@ -1,9 +1,15 @@
 import asyncio
 import websockets
+import requests
+import io
 from model_detection import ModelDetection, decode_image, encode_image
 
-IP = "192.168.1.35" #ipv4
+IP = "192.168.0.112" #ipv4
 PORT = 8888
+
+# Set your bot token and chat ID
+bot_token = "6741379537:AAErR_8MoBNXsoOpC0bDmkFlEn5EaYJFn6A"
+chat_id = "6693077264"
 
 connected_clients = dict()
 model_detection = ModelDetection()
@@ -23,6 +29,19 @@ async def handle_client(websocket, path):
             detect_data, _ishavingperson = model_detection.predict(data)
             if _ishavingperson:
                 print('Data detect human')
+                # Send an image
+                image_file = io.BytesIO(data)   # Convert the received binary data to a file-like object
+                files = {'photo': ('image.jpg', image_file)}    # Prepare the files parameter
+                image_url = f"https://api.telegram.org/bot{bot_token}/sendPhoto?chat_id={chat_id}"
+                requests.post(image_url, files=files)
+
+                # Send a text message
+                text_message = "Detect human!"
+                text_url = f"https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={chat_id}&text={text_message}"
+                requests.get(text_url)
+
+                # Wait for 5 seconds before continuing to detect
+                await asyncio.sleep(5)
 
             # just send the data to all currently connected client from this server
             for (addr, client_socket) in connected_clients.items():

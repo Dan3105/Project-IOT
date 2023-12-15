@@ -13,10 +13,14 @@
 #include <Firebase_ESP_Client.h>
 #include <addons/TokenHelper.h>
 #include "time.h"
+#include <ArduinoWebsockets.h>
 
 // Wifi configuration
-const char* ssid = "Minh 123";
-const char* password = "minh123";
+const char* ssid = "";
+const char* password = "";
+
+const char* websocket_server_host = "192.168.0.112"; //ipv4 cmd -> ipconfig
+const uint16_t websocket_server_port= 8888;
 
 // Initialize Telegram BOT
 String BOTtoken = "";  // your Bot Token (Get from Botfather)
@@ -28,11 +32,11 @@ String CHAT_ID = "";
 #define API_KEY ""
 
 // Insert Authorized Email and Corresponding Password
-#define USER_EMAIL ""
+#define USER_EMAIL "heolunkutu@gmail.com"
 #define USER_PASSWORD ""
 
 // Insert Firebase storage bucket ID e.g bucket-name.appspot.com
-#define STORAGE_BUCKET_ID ""
+#define STORAGE_BUCKET_ID "esp32-cam-security.appspot.com"
 
 // Photo File Name to save on Firebase cloud
 String FILE_PHOTO_PATH = "/photo.jpg";
@@ -63,6 +67,9 @@ int TIME_DELAY_FIREBASE = 30;
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig configF;
+
+using namespace websockets;
+WebsocketsClient client;
 
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 0;
@@ -116,17 +123,28 @@ void initCamera(){
   config.pixel_format = PIXFORMAT_JPEG;
   config.grab_mode = CAMERA_GRAB_LATEST;
 
-  //init with high specs to pre-allocate larger buffers
-  if(psramFound()){
-    config.frame_size = FRAMESIZE_UXGA;
-    config.jpeg_quality = 10;  //0-63 lower number means higher quality
-    config.fb_count = 1;
+  // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
+  //                      for larger pre-allocated frame buffer.
+  if(config.pixel_format == PIXFORMAT_JPEG){
+    if(psramFound()){
+      config.frame_size = FRAMESIZE_QVGA;  
+      config.jpeg_quality = 25;
+      config.fb_count = 2;
+      config.grab_mode = CAMERA_GRAB_LATEST;
+    } else {
+      // Limit the frame size when PSRAM is not available
+      config.frame_size = FRAMESIZE_SVGA;
+      config.jpeg_quality = 12;
+      config.fb_count = 1;
+    }
   } else {
-    config.frame_size = FRAMESIZE_SVGA;
-    config.jpeg_quality = 12;  //0-63 lower number means higher quality
-    config.fb_count = 1;
+    // Best option for face detection/recognition
+    config.frame_size = FRAMESIZE_240X240;
+#if CONFIG_IDF_TARGET_ESP32S3
+    config.fb_count = 2;
+#endif
   }
-  
+
   // camera init
   esp_err_t err = esp_camera_init(&config);
   if (err != ESP_OK) {
@@ -349,9 +367,6 @@ void sendImageToFirebase(){
     Serial.print("Uploading picture... ");
 
     String BUCKET_PHOTO = "/data/photo_";
-    // for(int i = 0; i < 20; i++) {
-    //   BUCKET_PHOTO.concat(currTime[i]);
-    // }
     BUCKET_PHOTO.concat(currTime);
     BUCKET_PHOTO = BUCKET_PHOTO + ".jpg";
     Serial.println(BUCKET_PHOTO);
@@ -376,7 +391,6 @@ void sendImageToFirebase(){
 void setup() {
   Serial.begin(115200);
 
-  // Set LED Flash as output
   pinMode(FLASH_LED_PIN, OUTPUT);
   digitalWrite(FLASH_LED_PIN, flashState);
 
@@ -387,6 +401,12 @@ void setup() {
 
   initCamera();
   initFirebase();
+
+  //connect toi websocket
+  while(!client.connect(websocket_server_host, websocket_server_port, "/")){
+    Serial.print(".");
+    delay(500);
+  }
   
   // Init and get the time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
@@ -398,10 +418,9 @@ void setup() {
   else{
     strftime(currTime, 20, "%F %T", &timeinfo);
     strftime(currSec, 3, "%S", &timeinfo);
-    //Serial.println(&timeinfo, "%F %T");
+    Serial.println(&timeinfo, "%F %T");
   }
 
-  Serial.println(&timeinfo, "%F %T");
   sendImageToFirebase();
 }
 
@@ -422,6 +441,24 @@ void checkRequestTelegram(){
   }
 }
 
+void sendImageToWebSocket(){
+  camera_fb_t *fb = esp_camera_fb_get();
+  
+  if(!fb){
+    Serial.println("Camera Captured Failed");
+    esp_camera_fb_return(fb);
+    return;
+  }
+
+  if(fb->format != PIXFORMAT_JPEG)
+  {
+    Serial.println("Non-JPEG data not implemented");
+    return;
+  }
+  client.sendBinary((const char*) fb->buf, fb->len);
+  esp_camera_fb_return(fb);
+}
+
 void loop() {
   checkRequestTelegram();
 
@@ -438,8 +475,8 @@ void loop() {
     }
   }
 
-  //lastTime = currTime;
-  delay(1000);
+  sendImageToWebSocket();
+  delay(500);
 }
 
 // The Firebase Storage upload callback function
