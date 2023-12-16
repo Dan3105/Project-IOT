@@ -13,27 +13,25 @@
 #include <Firebase_ESP_Client.h>
 #include <addons/TokenHelper.h>
 #include "time.h"
-#include <ArduinoWebsockets.h>
+#include <WebServer.h>
+#include <esp32cam.h>
 
 // Wifi configuration
-const char* ssid = "";
-const char* password = "";
-
-const char* websocket_server_host = "192.168.0.112"; //ipv4 cmd -> ipconfig
-const uint16_t websocket_server_port= 8888;
+const char* ssid = "Minh Hoa 1";
+const char* password = "minhhoa127";
 
 // Initialize Telegram BOT
-String BOTtoken = "";  // your Bot Token (Get from Botfather)
+String BOTtoken = "6741379537:AAErR_8MoBNXsoOpC0bDmkFlEn5EaYJFn6A";  // your Bot Token (Get from Botfather)
 
 // Use @myidbot to find out the chat ID of an individual or a group
-String CHAT_ID = "";
+String CHAT_ID = "6693077264";
 
 // Initialize Firebase cloud
-#define API_KEY ""
+#define API_KEY "AIzaSyC0pRmgCJoI8BzSOsUEugzscLiXNCszuUQ"
 
 // Insert Authorized Email and Corresponding Password
 #define USER_EMAIL "heolunkutu@gmail.com"
-#define USER_PASSWORD ""
+#define USER_PASSWORD "Heolunkutu@123"
 
 // Insert Firebase storage bucket ID e.g bucket-name.appspot.com
 #define STORAGE_BUCKET_ID "esp32-cam-security.appspot.com"
@@ -68,8 +66,11 @@ FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig configF;
 
-using namespace websockets;
-WebsocketsClient client;
+WebServer server(80);
+ 
+static auto loRes = esp32cam::Resolution::find(320, 320);
+static auto midRes = esp32cam::Resolution::find(350, 530);
+static auto hiRes = esp32cam::Resolution::find(800, 600);
 
 const char* ntpServer = "pool.ntp.org";
 const long gmtOffset_sec = 0;
@@ -79,79 +80,55 @@ char currTime[20];
 char lastSec[3];
 char currSec[3];
 
-//CAMERA_MODEL_AI_THINKER
-#define PWDN_GPIO_NUM     32
-#define RESET_GPIO_NUM    -1
-#define XCLK_GPIO_NUM      0
-#define SIOD_GPIO_NUM     26
-#define SIOC_GPIO_NUM     27
-
-#define Y9_GPIO_NUM       35
-#define Y8_GPIO_NUM       34
-#define Y7_GPIO_NUM       39
-#define Y6_GPIO_NUM       36
-#define Y5_GPIO_NUM       21
-#define Y4_GPIO_NUM       19
-#define Y3_GPIO_NUM       18
-#define Y2_GPIO_NUM        5
-#define VSYNC_GPIO_NUM    25
-#define HREF_GPIO_NUM     23
-#define PCLK_GPIO_NUM     22
-
 
 void initCamera(){
-  camera_config_t config;
-  config.ledc_channel = LEDC_CHANNEL_0;
-  config.ledc_timer = LEDC_TIMER_0;
-  config.pin_d0 = Y2_GPIO_NUM;
-  config.pin_d1 = Y3_GPIO_NUM;
-  config.pin_d2 = Y4_GPIO_NUM;
-  config.pin_d3 = Y5_GPIO_NUM;
-  config.pin_d4 = Y6_GPIO_NUM;
-  config.pin_d5 = Y7_GPIO_NUM;
-  config.pin_d6 = Y8_GPIO_NUM;
-  config.pin_d7 = Y9_GPIO_NUM;
-  config.pin_xclk = XCLK_GPIO_NUM;
-  config.pin_pclk = PCLK_GPIO_NUM;
-  config.pin_vsync = VSYNC_GPIO_NUM;
-  config.pin_href = HREF_GPIO_NUM;
-  config.pin_sscb_sda = SIOD_GPIO_NUM;
-  config.pin_sscb_scl = SIOC_GPIO_NUM;
-  config.pin_pwdn = PWDN_GPIO_NUM;
-  config.pin_reset = RESET_GPIO_NUM;
-  config.xclk_freq_hz = 20000000;
-  config.pixel_format = PIXFORMAT_JPEG;
-  config.grab_mode = CAMERA_GRAB_LATEST;
+  using namespace esp32cam;
+  Config cfg;
+  cfg.setPins(pins::AiThinker);
+  cfg.setResolution(hiRes);
+  cfg.setBufferCount(2);
+  cfg.setJpeg(80);
 
-  // if PSRAM IC present, init with UXGA resolution and higher JPEG quality
-  //                      for larger pre-allocated frame buffer.
-  if(config.pixel_format == PIXFORMAT_JPEG){
-    if(psramFound()){
-      config.frame_size = FRAMESIZE_QVGA;  
-      config.jpeg_quality = 25;
-      config.fb_count = 2;
-      config.grab_mode = CAMERA_GRAB_LATEST;
-    } else {
-      // Limit the frame size when PSRAM is not available
-      config.frame_size = FRAMESIZE_SVGA;
-      config.jpeg_quality = 12;
-      config.fb_count = 1;
-    }
-  } else {
-    // Best option for face detection/recognition
-    config.frame_size = FRAMESIZE_240X240;
-#if CONFIG_IDF_TARGET_ESP32S3
-    config.fb_count = 2;
-#endif
-  }
+  bool ok = Camera.begin(cfg);
+  Serial.println(ok ? "CAMERA OK" : "CAMERA FAIL");
+}
 
-  // camera init
-  esp_err_t err = esp_camera_init(&config);
-  if (err != ESP_OK) {
-    Serial.printf("Camera init failed with error 0x%x", err);
-    delay(1000);
-    ESP.restart();
+
+void serveJpg(){
+  auto frame = esp32cam::capture();
+  if (frame == nullptr) {
+    Serial.println("CAPTURE FAIL");
+    server.send(503, "", "");
+    return;
   }
+  Serial.printf("CAPTURE OK %dx%d %db\n", frame->getWidth(), frame->getHeight(),
+                static_cast<int>(frame->size()));
+ 
+  server.setContentLength(frame->size());
+  server.send(200, "image/jpeg");
+  WiFiClient client = server.client();
+  frame->writeTo(client);
+}
+ 
+void handleJpgLo(){
+  if (!esp32cam::Camera.changeResolution(loRes)) {
+    Serial.println("SET-LO-RES FAIL");
+  }
+  serveJpg();
+}
+ 
+void handleJpgHi(){
+  if (!esp32cam::Camera.changeResolution(hiRes)) {
+    Serial.println("SET-HI-RES FAIL");
+  }
+  serveJpg();
+}
+ 
+void handleJpgMid(){
+  if (!esp32cam::Camera.changeResolution(midRes)) {
+    Serial.println("SET-MID-RES FAIL");
+  }
+  serveJpg();
 }
 
 void handleNewMessages(int numNewMessages) {
@@ -366,8 +343,10 @@ void sendImageToFirebase(){
     //taskCompleted = true;
     Serial.print("Uploading picture... ");
 
-    String BUCKET_PHOTO = "/data/photo_";
-    BUCKET_PHOTO.concat(currTime);
+    String BUCKET_PHOTO = "/data/";
+    for(int i = 0; i < 10; i++) BUCKET_PHOTO.concat(currTime[i]);
+    BUCKET_PHOTO = BUCKET_PHOTO + "/";
+    for(int i = 11; i < 19; i++) BUCKET_PHOTO.concat(currTime[i]);
     BUCKET_PHOTO = BUCKET_PHOTO + ".jpg";
     Serial.println(BUCKET_PHOTO);
 
@@ -398,15 +377,13 @@ void setup() {
 
   initWiFi();
   initLittleFS();
-
   initCamera();
   initFirebase();
 
-  //connect toi websocket
-  while(!client.connect(websocket_server_host, websocket_server_port, "/")){
-    Serial.print(".");
-    delay(500);
-  }
+  server.on("/cam-lo.jpg", handleJpgLo);
+  server.on("/cam-hi.jpg", handleJpgHi);
+  server.on("/cam-mid.jpg", handleJpgMid);
+  server.begin();
   
   // Init and get the time
   configTime(gmtOffset_sec, daylightOffset_sec, ntpServer);
@@ -416,7 +393,7 @@ void setup() {
     Serial.println("Failed to obtain time");
   }
   else{
-    strftime(currTime, 20, "%F %T", &timeinfo);
+    strftime(currTime, 20, "%Y-%m-%d %H:%M:%S", &timeinfo);
     strftime(currSec, 3, "%S", &timeinfo);
     Serial.println(&timeinfo, "%F %T");
   }
@@ -441,42 +418,26 @@ void checkRequestTelegram(){
   }
 }
 
-void sendImageToWebSocket(){
-  camera_fb_t *fb = esp_camera_fb_get();
-  
-  if(!fb){
-    Serial.println("Camera Captured Failed");
-    esp_camera_fb_return(fb);
-    return;
-  }
-
-  if(fb->format != PIXFORMAT_JPEG)
-  {
-    Serial.println("Non-JPEG data not implemented");
-    return;
-  }
-  client.sendBinary((const char*) fb->buf, fb->len);
-  esp_camera_fb_return(fb);
-}
-
-void loop() {
-  checkRequestTelegram();
-
+void checkTimeDelayFirebase(){
   strncpy(lastSec, currSec, 2);
   struct tm timeinfo;
   if(!getLocalTime(&timeinfo)){
     Serial.println("Failed to obtain time");
   }
   else{
-    strftime(currTime, 20, "%F %T", &timeinfo);
+    strftime(currTime, 20, "%Y-%m-%d %H:%M:%S", &timeinfo);
     strftime(currSec, 3, "%S", &timeinfo);
     if(abs(atoi(currSec) - atoi(lastSec)) >= TIME_DELAY_FIREBASE){
       sendImageToFirebase();
     }
   }
+}
 
-  sendImageToWebSocket();
-  delay(500);
+void loop() {
+  checkRequestTelegram();
+  server.handleClient();
+  checkTimeDelayFirebase();
+  delay(1000);
 }
 
 // The Firebase Storage upload callback function
