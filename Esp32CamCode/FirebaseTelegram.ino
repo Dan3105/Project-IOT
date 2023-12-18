@@ -17,24 +17,24 @@
 #include <esp32cam.h>
 
 // Wifi configuration
-const char* ssid = "Minh Hoa 1";
-const char* password = "minhhoa127";
+const char* ssid = "";
+const char* password = "";
 
 // Initialize Telegram BOT
-String BOTtoken = "6741379537:AAErR_8MoBNXsoOpC0bDmkFlEn5EaYJFn6A";  // your Bot Token (Get from Botfather)
+String BOTtoken = "";  // your Bot Token (Get from Botfather)
 
 // Use @myidbot to find out the chat ID of an individual or a group
-String CHAT_ID = "6693077264";
+String CHAT_ID = "";
 
 // Initialize Firebase cloud
-#define API_KEY "AIzaSyC0pRmgCJoI8BzSOsUEugzscLiXNCszuUQ"
+#define API_KEY ""
 
 // Insert Authorized Email and Corresponding Password
 #define USER_EMAIL "heolunkutu@gmail.com"
-#define USER_PASSWORD "Heolunkutu@123"
+#define USER_PASSWORD ""
 
 // Insert Firebase storage bucket ID e.g bucket-name.appspot.com
-#define STORAGE_BUCKET_ID "esp32-cam-security.appspot.com"
+#define STORAGE_BUCKET_ID ""
 
 // Photo File Name to save on Firebase cloud
 String FILE_PHOTO_PATH = "/photo.jpg";

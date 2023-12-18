@@ -7,7 +7,7 @@ import io
 import time
 from model_detection import ModelDetection, decode_image, encode_image
 
-url = 'http://192.168.2.199/cam-lo.jpg'
+url = 'http://192.168.0.119/cam-lo.jpg'
 
 # Set your bot token and chat ID
 bot_token = "6741379537:AAErR_8MoBNXsoOpC0bDmkFlEn5EaYJFn6A"
