@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 import requests
 import io
+import threading
 import time
 from model_detection import ModelDetection, decode_image, encode_image
 
@@ -33,16 +34,31 @@ def send_notification(data):
     # Wait for 5 seconds before continuing to detect
     #asyncio.sleep(5)
 
+IS_HAVING_PERSON = False
+DETECT_DATA = None
+
+def announce_detection():
+    while(1):
+        if IS_HAVING_PERSON and DETECT_DATA != None:
+            send_notification(DETECT_DATA)
+            time.sleep(5)
+
 def run_detect():
     while(1):
         img_resp = urllib.request.urlopen(url)
         imgnp = np.array(bytearray(img_resp.read()), dtype=np.uint8)
         
-        detect_data, _ishavingperson = model_detection.predict(imgnp)
-        if _ishavingperson:
-            send_notification(detect_data)
-            time.sleep(5)
+        #detect_data, _ishavingperson = model_detection.predict(imgnp)
+        DETECT_DATA, IS_HAVING_PERSON = model_detection.predict(imgnp)
+        # if _ishavingperson:
+        #     send_notification(detect_data)
+        #     time.sleep(5)
 
 
 if __name__ == "__main__":
-    run_detect()
+    #run_detect()
+    t1 = threading.Thread(target=run_detect)
+    t2 = threading.Thread(target=announce_detection)
+
+    t1.start()
+    t2.start()
