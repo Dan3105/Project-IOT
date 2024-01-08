@@ -57,13 +57,13 @@ class App:
             
             #Mat real, Mat fake
             image_moded, face = self.anti_spoof_model.detect(frame)
-            # if face is not None:
-            #     #neu mat real
-            #     #ten nguoi dung
-            #     result_name = self.model_recog.predict(face)
-            #     if result_name is not None:
-            #         # lam gi thi lam
-            #         print(result_name)
+            #if face is not None:
+                #neu mat real
+                #ten nguoi dung
+                #result_name = self.model_recog.predict(face)
+                #if result_name is not None:
+                    # lam gi thi lam
+                    #print(result_name)
             self.most_recent_capture_arr = image_moded
             img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
             self.most_recent_capture_pil = Image.fromarray(img_)
