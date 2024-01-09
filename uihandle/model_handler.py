@@ -8,6 +8,7 @@ import torch
 import os
 import pandas as pd
 import numpy as np
+
 class ModelAntiSpoffing:
     def __init__(self, asmodelpath, confidence = 0.8):
         self._model = YOLO(asmodelpath)
@@ -52,51 +53,69 @@ class ModelAntiSpoffing:
                             
         return image, face_human
 
+class ModelDetectorFace:
+    def __init__(self, model_path):
+        self._model = cv2.FaceDetectorYN_create(model_path, "", (0,0))
+        self._model.setScoreThreshold(0.87)
+        self.__scaling_size = 320
+    def __format_image(self, image):
+        format_image = cv2.resize(image, (0,0), fx=self.__scaling_size/image.shape[0], fy=self.__scaling_size/image.shape[0])
+        return format_image
+    def get_encode_face(self, image):
+        """
+        image: numpy array format BGR
+        return array result
+        """
+        format_image = self.__format_image(image)
+        height, width, _ = format_image.shape
+        self._model.setInputSize((width, height))
+        try:
+            _, encode = self._model.detect(format_image)
+            return encode
+        except:
+            return None
+
 class ModelRecognition:
-    def __init__(self, db_path, db_img, threshold=0.7):
-        self._model = InceptionResnetV1(pretrained='vggface2').eval()
+    def __init__(self, model_detect_path, model_recog_path, db_path, db_img, threshold=0.2):
+        self._model_recog = cv2.FaceRecognizerSF_create(model_recog_path, "")
         #self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         #self._model.to(self._device)
+        self._model_detect = ModelDetectorFace(model_detect_path)
         self._threshold = threshold
         self._db_path = db_path
         self._db_img = db_img
 
     def __distance(self, encode_input, encode_user):
-        return np.linalg.norm(encode_input - encode_user)
+        score = self._model_recog.match(encode_input, encode_user, cv2.FaceRecognizerSF_FR_NORM_L2)
+        return score
     def predict(self, image):
         """
         image: face_human, result which model above return
         return:
             id, name: person
         """
-        convert_to_tensor = torch.tensor(image)
-        convert_to_tensor = convert_to_tensor.permute(2, 0, 1)
-
-        normalized_tensor = convert_to_tensor.divide(255)
-        encode_input = self._model(normalized_tensor.unsqueeze(0))
+        input_encode = self._model_detect.get_encode_face(image)
+        if input_encode is None:
+            return None
         
         users = pd.read_csv(self._db_path)
+        smallest_score_person = 100
+        matches_person = None
         for index, row in users.iterrows():
             image_path = os.path.join(self._db_img, row['Image'])
             image_user = cv2.imread(image_path)
 
-
-            user_to_tensor = torch.tensor(image_user)
-            user_to_tensor = user_to_tensor.permute(2, 0, 1)
-            normalized_user_tensor = user_to_tensor.divide(255)
-
-            encode_user = self._model(normalized_user_tensor.unsqueeze(0))
-
-            np_encode_input = encode_input.detach().numpy()
-            np_encode_user = encode_user.detach().numpy()
-
-            dist = self.__distance(np_encode_input, np_encode_user)
-            if dist < self._threshold:
-                return row['Name']
-            #print(dist)
+            encode_user = self._model_detect.get_encode_face(image_user)
+            if encode_user is not None:
+                score = self.__distance(input_encode, encode_user)
+                #print(score)
+                if score < smallest_score_person and score < self._threshold:
+                    smallest_score_person = score 
+                    matches_person = row["Name"]
             else:
                 print(f'Image of {row["Name"]} is not correct')
-        return None
+        
+        return matches_person
     
     def save_data_user(self, image, name):
         name_format = name.split(' ')[-1]+'.png'
