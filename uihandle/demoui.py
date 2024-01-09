@@ -8,9 +8,16 @@ from PIL import Image, ImageTk
 import util
 import torch
 from model_handler import ModelAntiSpoffing, ModelRecognition
+import os
 
-if torch.cuda.is_available():
-    print('Ok')
+CRR_PATH = os.curdir
+
+MODEL_RECOG_PATH = 'model-2/face_recognizer_fast.onnx'
+MODEL_DETECT_PATH = 'model-2/yunet_s_640_640.onnx'
+MODEL_ANTI_PATH = 'uihandle/best.pt'
+
+DB_IMAGE_PATH = 'uihandle/db/image-data' 
+DB_CSV_PATH = 'uihandle/db/db.csv'
 
 class App:
     def __init__(self):
@@ -30,8 +37,8 @@ class App:
         self.webcam_label = util.get_img_label(self.main_window)
         self.webcam_label.place(x=10, y=0, width=700, height=500)
 
-        self.anti_spoof_model = ModelAntiSpoffing('best.pt')
-        self.model_recog = ModelRecognition('db/db.csv', 'db/image-data')
+        self.anti_spoof_model = ModelAntiSpoffing(MODEL_ANTI_PATH)
+        self.model_recog = ModelRecognition(MODEL_DETECT_PATH, MODEL_RECOG_PATH, DB_CSV_PATH, DB_IMAGE_PATH)
 
         self.add_webcam(self.webcam_label)
 
@@ -57,13 +64,13 @@ class App:
             
             #Mat real, Mat fake
             image_moded, face = self.anti_spoof_model.detect(frame)
-            #if face is not None:
+            if face is not None:
                 #neu mat real
                 #ten nguoi dung
-                #result_name = self.model_recog.predict(face)
-                #if result_name is not None:
+                result_name = self.model_recog.predict(face)
+                if result_name is not None:
                     # lam gi thi lam
-                    #print(result_name)
+                    print(result_name)
             self.most_recent_capture_arr = image_moded
             img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
             self.most_recent_capture_pil = Image.fromarray(img_)
