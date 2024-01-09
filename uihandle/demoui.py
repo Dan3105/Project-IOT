@@ -122,11 +122,13 @@ class App:
         self.main_window.mainloop()
 
     def accept_register_new_user(self):
+        ret, frame = self.cap.read()
         name = self.entry_text_register_new_user.get(1.0, "end-1c")
-        image = self.register_new_user_capture
+        image = frame
         
         try:
-            self.model_recog.save_data_user(image, name)
+            _, face_human = self.anti_spoof_model.detect(image)
+            self.model_recog.save_data_user(face_human, name)
             util.msg_box('Success!', 'User was registered successfully !')
         except Exception as e:
             print(e)
