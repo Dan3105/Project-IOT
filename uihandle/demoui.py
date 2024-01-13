@@ -51,7 +51,7 @@ class App:
         self.model_recog = ModelRecognition(MODEL_DETECT_PATH, MODEL_RECOG_PATH, DB_CSV_PATH, DB_IMAGE_PATH)
 
         self.add_webcam(self.webcam_label)
-
+        self.last_capture_face = None
 
         # self.db_dir = './db'
         # if not os.path.exists(self.db_dir):
@@ -87,20 +87,27 @@ class App:
             image_moded, face = self.anti_spoof_model.detect(frame)
             if face is not None:
                 #neu mat real
-                self.most_recent_capture_arr = face
-                img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
-                self.most_recent_capture_pil = Image.fromarray(img_)
-
-                imgtk = ImageTk.PhotoImage(image=self.most_recent_capture_pil)
-                self._label.imgtk = imgtk
-                self._label.configure(image=imgtk)
-
+                #self.register_new_user_button_main_window.config(state=tk.NORMAL)
+                self.register_new_user_button_main_window['state'] = tk.NORMAL
+                self.last_capture_face = face
                 #ten nguoi dung
                 result_name = self.model_recog.predict(face)
                 if result_name is not None:
                     # lam gi thi lam
                     print(result_name)
-    
+            else:
+                #self.register_new_user_button_main_window.config(state=tk.DISABLED)
+                self.register_new_user_button_main_window['state'] = tk.DISABLED
+                self.last_capture_face = None
+
+            self.most_recent_capture_arr = image_moded
+            img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
+            self.most_recent_capture_pil = Image.fromarray(img_)
+
+            imgtk = ImageTk.PhotoImage(image=self.most_recent_capture_pil)
+            self._label.imgtk = imgtk
+            self._label.configure(image=imgtk)
+
         self._label.after(20, self.process_webcam)
 
     def login(self):
@@ -129,7 +136,10 @@ class App:
         self.allow_detect = False
 
     def register_new_user(self):
+        if self.last_capture_face is None:
+            return
         IS_REGISTER = True
+        
         self.register_new_user_window = tk.Toplevel(self.main_window)
         self.register_new_user_window.geometry("1200x520+370+120")
         self.register_new_user_window.bind("<Visibility>", self.on_openning)
@@ -173,9 +183,8 @@ class App:
         name = self.entry_text_register_new_user.get(1.0, "end-1c")
 
         try:
-            _, face_human = self.anti_spoof_model.detect(self.most_recent_capture_pil)
-            if face_human is not None:
-                self.model_recog.save_data_user(face_human, name)
+            if self.last_capture_face is not None:
+                self.model_recog.save_data_user(self.last_capture_face, name)
                 util.msg_box('Success!', 'User was registered successfully !')
         except Exception as e:
             print(e)

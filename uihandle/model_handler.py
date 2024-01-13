@@ -76,7 +76,7 @@ class ModelDetectorFace:
             return None
 
 class ModelRecognition:
-    def __init__(self, model_detect_path, model_recog_path, db_path, db_img, threshold=0.2):
+    def __init__(self, model_detect_path, model_recog_path, db_path, db_img, threshold=0.1):
         self._model_recog = cv2.FaceRecognizerSF_create(model_recog_path, "")
         #self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         #self._model.to(self._device)
