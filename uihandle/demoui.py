@@ -67,14 +67,14 @@ class App:
         self.process_webcam()
 
     def process_webcam(self):
-        #ret, frame = self.cap.read()
+        ret, frame = self.cap.read()
         #if frame is not None:
         #ret, frame = self.cap.read()
         #print(frame.shape)
 
-        response = requests.get(url)
-        frame = np.array(Image.open(BytesIO(response.content)))
-        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # response = requests.get(url)
+        # frame = np.array(Image.open(BytesIO(response.content)))
+        # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         # print(frame.shape)
 
         if IS_REGISTER:
