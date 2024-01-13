@@ -3,6 +3,12 @@ import datetime
 import pickle
 import time
 import tkinter as tk
+import urllib.request
+from io import BytesIO
+import requests
+
+import numpy as np
+
 import cv2
 from PIL import Image, ImageTk
 import util
@@ -20,6 +26,8 @@ MODEL_ANTI_PATH = 'antispoof.pt'
 DB_IMAGE_PATH = 'db/image-data'
 DB_CSV_PATH = 'db/db.csv'
 
+url = 'http://192.168.0.114/cam-lo.jpg'
+IS_REGISTER=False
 class App:
     def __init__(self):
         self.allow_detect = True
@@ -59,10 +67,37 @@ class App:
         self.process_webcam()
 
     def process_webcam(self):
-        if self.allow_detect:
+        #ret, frame = self.cap.read()
+        #if frame is not None:
+        #ret, frame = self.cap.read()
+        #print(frame.shape)
 
-            ret, frame = self.cap.read()
-            if frame is not None:
+        response = requests.get(url)
+        frame = Image.open(BytesIO(response.content))
+        frame = np.array(frame)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # print(frame.shape)
+        if IS_REGISTER:
+            return
+        if frame is not None:
+
+            #Handle logic cua mo hay dong
+
+            #Mat real, Mat fake
+            image_moded, face = self.anti_spoof_model.detect(frame)
+            if face is not None:
+                #neu mat real
+                #ten nguoi dung
+                result_name = self.model_recog.predict(face)
+                if result_name is not None:
+                    # lam gi thi lam
+                    print(result_name)
+            self.most_recent_capture_arr = image_moded
+            img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
+            self.most_recent_capture_pil = Image.fromarray(img_)
+            imgtk = ImageTk.PhotoImage(image=self.most_recent_capture_pil)
+            self._label.imgtk = imgtk
+            self._label.configure(image=imgtk)
 
                 # Handle logic cua mo hay dong
 
@@ -111,6 +146,7 @@ class App:
         self.allow_detect = False
 
     def register_new_user(self):
+        IS_REGISTER = True
         self.register_new_user_window = tk.Toplevel(self.main_window)
         self.register_new_user_window.geometry("1200x520+370+120")
         self.register_new_user_window.bind("<Visibility>", self.on_openning)
@@ -151,16 +187,16 @@ class App:
         self.main_window.mainloop()
 
     def accept_register_new_user(self):
-        ret, frame = self.cap.read()
         name = self.entry_text_register_new_user.get(1.0, "end-1c")
-        image = frame
 
         try:
-            _, face_human = self.anti_spoof_model.detect(image)
-            self.model_recog.save_data_user(face_human, name)
-            util.msg_box('Success!', 'User was registered successfully !')
+            _, face_human = self.anti_spoof_model.detect(self.most_recent_capture_pil)
+            if face_human is not None:
+                self.model_recog.save_data_user(face_human, name)
+                util.msg_box('Success!', 'User was registered successfully !')
         except Exception as e:
             print(e)
+        IS_REGISTER = False
         self.register_new_user_window.destroy()
 
 
