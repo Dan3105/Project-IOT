@@ -73,10 +73,10 @@ class App:
         #print(frame.shape)
 
         response = requests.get(url)
-        frame = Image.open(BytesIO(response.content))
-        frame = np.array(frame)
+        frame = np.array(Image.open(BytesIO(response.content)))
         frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         # print(frame.shape)
+
         if IS_REGISTER:
             return
         if frame is not None:
@@ -87,37 +87,20 @@ class App:
             image_moded, face = self.anti_spoof_model.detect(frame)
             if face is not None:
                 #neu mat real
+                self.most_recent_capture_arr = face
+                img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
+                self.most_recent_capture_pil = Image.fromarray(img_)
+
+                imgtk = ImageTk.PhotoImage(image=self.most_recent_capture_pil)
+                self._label.imgtk = imgtk
+                self._label.configure(image=imgtk)
+
                 #ten nguoi dung
                 result_name = self.model_recog.predict(face)
                 if result_name is not None:
                     # lam gi thi lam
                     print(result_name)
-            self.most_recent_capture_arr = image_moded
-            img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
-            self.most_recent_capture_pil = Image.fromarray(img_)
-            imgtk = ImageTk.PhotoImage(image=self.most_recent_capture_pil)
-            self._label.imgtk = imgtk
-            self._label.configure(image=imgtk)
-
-                # Handle logic cua mo hay dong
-
-                # Mat real, Mat fake
-                image_moded, face = self.anti_spoof_model.detect(frame)
-                if face is not None:
-                    # neu mat real
-                    # ten nguoi dung
-                    result_name = self.model_recog.predict(face)
-                    if result_name is not None:
-                        # lam gi thi lam
-                        print(result_name)
-
-                self.most_recent_capture_arr = image_moded
-                img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
-                self.most_recent_capture_pil = Image.fromarray(img_)
-                imgtk = ImageTk.PhotoImage(image=self.most_recent_capture_pil)
-                self._label.imgtk = imgtk
-                self._label.configure(image=imgtk)
-
+    
         self._label.after(20, self.process_webcam)
 
     def login(self):
