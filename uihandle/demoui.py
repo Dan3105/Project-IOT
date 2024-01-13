@@ -3,6 +3,12 @@ import datetime
 import pickle
 
 import tkinter as tk
+import urllib.request
+from io import BytesIO
+import requests
+
+import numpy as np
+
 import cv2
 from PIL import Image, ImageTk
 import util
@@ -14,11 +20,13 @@ CRR_PATH = os.curdir
 
 MODEL_RECOG_PATH = 'model-2/face_recognizer_fast.onnx'
 MODEL_DETECT_PATH = 'model-2/yunet_s_640_640.onnx'
-MODEL_ANTI_PATH = 'uihandle/best.pt'
+MODEL_ANTI_PATH = 'antispoof.pt'
 
-DB_IMAGE_PATH = 'uihandle/db/image-data' 
-DB_CSV_PATH = 'uihandle/db/db.csv'
+DB_IMAGE_PATH = 'db/image-data'
+DB_CSV_PATH = 'db/db.csv'
 
+url = 'http://192.168.0.114/cam-lo.jpg'
+IS_REGISTER=False
 class App:
     def __init__(self):
         self.main_window = tk.Tk()
@@ -57,11 +65,20 @@ class App:
         self.process_webcam()
 
     def process_webcam(self):
-        ret, frame = self.cap.read()
+        #ret, frame = self.cap.read()
+        #print(frame.shape)
+
+        response = requests.get(url)
+        frame = Image.open(BytesIO(response.content))
+        frame = np.array(frame)
+        frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
+        # print(frame.shape)
+        if IS_REGISTER:
+            return
         if frame is not None:
 
             #Handle logic cua mo hay dong
-            
+
             #Mat real, Mat fake
             image_moded, face = self.anti_spoof_model.detect(frame)
             if face is not None:
@@ -88,6 +105,7 @@ class App:
 
 
     def register_new_user(self):
+        IS_REGISTER = True
         self.register_new_user_window = tk.Toplevel(self.main_window)
         self.register_new_user_window.geometry("1200x520+370+120")
 
@@ -122,16 +140,16 @@ class App:
         self.main_window.mainloop()
 
     def accept_register_new_user(self):
-        ret, frame = self.cap.read()
         name = self.entry_text_register_new_user.get(1.0, "end-1c")
-        image = frame
-        
+
         try:
-            _, face_human = self.anti_spoof_model.detect(image)
-            self.model_recog.save_data_user(face_human, name)
-            util.msg_box('Success!', 'User was registered successfully !')
+            _, face_human = self.anti_spoof_model.detect(self.most_recent_capture_pil)
+            if face_human is not None:
+                self.model_recog.save_data_user(face_human, name)
+                util.msg_box('Success!', 'User was registered successfully !')
         except Exception as e:
             print(e)
+        IS_REGISTER = False
         self.register_new_user_window.destroy()
 
 

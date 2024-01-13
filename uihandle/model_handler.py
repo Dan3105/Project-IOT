@@ -118,9 +118,14 @@ class ModelRecognition:
         return matches_person
     
     def save_data_user(self, image, name):
+        if image is None:
+            print('Image is unreal')
+            return
         name_format = name.split(' ')[-1]+'.png'
         name_path = os.path.join(self._db_img, name_format)
+        #name_path = name_format
         cv2.imwrite(name_path, image)
+        print(name_path)
         new_row_data = {'Name': name, 'Image': name_format}
         df = pd.read_csv(self._db_path)
         df= pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
