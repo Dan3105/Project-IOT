@@ -1,0 +1,98 @@
+// Library for telegram bot & firebase storage
+#include <WiFi.h>
+#include <WebServer.h>
+#include <esp32cam.h>
+
+// Wifi configuration
+const char* ssid = "n";
+const char* password = "m7";
+
+WebServer server(80);
+
+// Nè
+static auto loRes = esp32cam::Resolution::find(320, 320);
+static auto midRes = esp32cam::Resolution::find(350, 530);
+static auto hiRes = esp32cam::Resolution::find(800, 600);
+
+void initCamera(){
+  using namespace esp32cam;
+  Config cfg;
+  cfg.setPins(pins::AiThinker);
+  cfg.setResolution(hiRes);
+  cfg.setBufferCount(2);
+  cfg.setJpeg(10);
+
+  bool ok = Camera.begin(cfg);
+  Serial.println(ok ? "CAMERA OK" : "CAMERA FAIL");
+}
+
+
+void serveJpg(){
+  auto frame = esp32cam::capture();
+  if (frame == nullptr) {
+    Serial.println("CAPTURE FAIL");
+    server.send(503, "", "");
+    return;
+  }
+  Serial.printf("CAPTURE OK %dx%d %db\n", frame->getWidth(), frame->getHeight(),
+                static_cast<int>(frame->size()));
+
+  server.setContentLength(frame->size());
+  server.send(200, "image/jpeg");
+  WiFiClient client = server.client();
+  frame->writeTo(client);
+}
+
+void handleJpgLo(){
+  if (!esp32cam::Camera.changeResolution(loRes)) {
+    Serial.println("SET-LO-RES FAIL");
+  }
+  serveJpg();
+}
+
+void handleJpgHi(){
+  if (!esp32cam::Camera.changeResolution(hiRes)) {
+    Serial.println("SET-HI-RES FAIL");
+  }
+  serveJpg();
+}
+
+void handleJpgMid(){
+  if (!esp32cam::Camera.changeResolution(midRes)) {
+    Serial.println("SET-MID-RES FAIL");
+  }
+  serveJpg();
+}
+
+void initWiFi(){
+  WiFi.mode(WIFI_STA);
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(ssid);
+  WiFi.begin(ssid, password);
+  while (WiFi.status() != WL_CONNECTED) {
+    Serial.print(".");
+    delay(500);
+  }
+  Serial.println();
+  Serial.print("ESP32-CAM IP Address: ");
+  Serial.println(WiFi.localIP());
+}
+
+void setup() {
+  Serial.begin(115200);
+
+  initCamera();
+  initWiFi();
+
+  server.on("/cam-lo.jpg", handleJpgLo);
+  server.on("/cam-hi.jpg", handleJpgHi);
+  server.on("/cam-mid.jpg", handleJpgMid);
+  server.begin();
+}
+
+void loop() {
+  server.handleClient();
+}
+
+
