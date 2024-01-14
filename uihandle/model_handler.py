@@ -111,11 +111,13 @@ class ModelRecognition:
                 #print(score)
                 if score < smallest_score_person and score < self._threshold:
                     smallest_score_person = score 
-                    matches_person = row["Name"]
+                    matches_person = row
             else:
                 print(f'Image of {row["Name"]} is not correct')
         
-        return matches_person
+        if matches_person["Permission" == 0]:
+            return None
+        return matches_person["Name"]
     
     def save_data_user(self, image, name):
         if image is None:
@@ -126,7 +128,7 @@ class ModelRecognition:
         #name_path = name_format
         cv2.imwrite(name_path, image)
         print(name_path)
-        new_row_data = {'Name': name, 'Image': name_format}
+        new_row_data = {'Name': name, 'Image': name_format, 'Permission' : 1}
         df = pd.read_csv(self._db_path)
         df= pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
         df.to_csv(self._db_path, index=False)
