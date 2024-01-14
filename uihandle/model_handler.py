@@ -115,7 +115,7 @@ class ModelRecognition:
             else:
                 print(f'Image of {row["Name"]} is not correct')
         
-        if matches_person["Permission" == 0]:
+        if matches_person["Permission"]  == 0:
             return None
         return matches_person["Name"]
     
