@@ -1,8 +1,76 @@
 import os
 import pickle
+import io
+import cv2
 
 import tkinter as tk
 from tkinter import messagebox
+
+import firebase_admin
+from firebase_admin import credentials, db
+import requests
+
+DOOR_CLOSED, DOOR_OPENED = 0, 1
+BELL_OFF, BELL_ON = 0, 1
+LED_OFF, LED_ON = 0, 1
+
+# Set your bot token and chat ID
+bot_token = "Your token ID"
+chat_id = "Your chat ID"
+
+url = 'http://192.168.0.114/cam-lo.jpg'
+
+cred = credentials.Certificate("firebaseKey/serviceAccountKey.json")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://thuchanh2-28511-default-rtdb.firebaseio.com/'
+})
+ref_door_mode = db.reference("door_mode")
+ref_bell_mode = db.reference("bell_mode")
+ref_led_mode = db.reference("led_mode")
+
+
+def get_door_state():
+    return ref_door_mode.get()
+
+
+def set_door_state(mode=DOOR_CLOSED):
+    ref_door_mode.set(mode)
+    return
+
+
+def get_bell_state():
+    return ref_bell_mode.get()
+
+
+def set_bell_state(mode=BELL_OFF):
+    ref_bell_mode.set(mode)
+    return
+
+
+def get_led_state():
+    return ref_led_mode.get()
+
+
+def set_led_state(mode=LED_OFF):
+    ref_led_mode.set(mode)
+    return
+
+
+def send_notification(_frame):
+    _, img_encoded = cv2.imencode('.jpg', _frame)
+    image_bytes = img_encoded.tobytes()
+
+    # Create a file-like object
+    image_file = io.BytesIO(image_bytes)
+
+    files = {'photo': ('image.jpg', image_file)}  # Prepare the files parameter
+    image_url = f"https://api.telegram.org/bot{bot_token}/sendPhoto?chat_id={chat_id}"
+    requests.post(image_url, files=files)
+
+    # Send a text message
+    text_message = "Strange human!"
+    text_url = f"https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={chat_id}&text={text_message}"
+    requests.get(text_url)
 
 
 def get_button(window, text, color, command, fg='white'):
@@ -43,31 +111,4 @@ def get_entry_text(window):
 
 def msg_box(title, description):
     messagebox.showinfo(title, description)
-
-
-def recognize(img, db_path):
-    # it is assumed there will be at most 1 match in the db
-
-    embeddings_unknown = face_recognition.face_encodings(img)
-    if len(embeddings_unknown) == 0:
-        return 'no_persons_found'
-    else:
-        embeddings_unknown = embeddings_unknown[0]
-
-    db_dir = sorted(os.listdir(db_path))
-
-    match = False
-    j = 0
-    while not match and j < len(db_dir):
-        path_ = os.path.join(db_path, db_dir[j])
-
-        file = open(path_, 'rb')
-        embeddings = pickle.load(file)
-
-        match = face_recognition.compare_faces([embeddings], embeddings_unknown)[0]
-        j += 1
-
-    if match:
-        return db_dir[j - 1][:-7]
-    else:
-        return 'unknown_person'
+    
