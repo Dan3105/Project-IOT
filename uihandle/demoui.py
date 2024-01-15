@@ -16,12 +16,13 @@ import cv2
 from PIL import Image, ImageTk
 import util
 import torch
-from model_handler import ModelAntiSpoffing, ModelRecognition
+from model_handler import ModelAntiSpoffing, ModelRecogDeepFace, ModelRecognition
 import os
 from tkinter import messagebox
 
 CRR_PATH = os.curdir
 
+MODEL_RECOG_DEEP_PATH = 'model-2/my_model_recog.h5'
 MODEL_RECOG_PATH = 'model-2/face_recognizer_fast.onnx'
 MODEL_DETECT_PATH = 'model-2/yunet_s_640_640.onnx'
 MODEL_ANTI_PATH = 'antispoof.pt'
@@ -74,8 +75,8 @@ class App:
         self.webcam_label.place(x=10, y=0, width=700, height=500)
 
         self.anti_spoof_model = ModelAntiSpoffing(MODEL_ANTI_PATH)
+        #self.model_recog = ModelRecogDeepFace(MODEL_RECOG_DEEP_PATH, DB_CSV_PATH, DB_IMAGE_PATH)
         self.model_recog = ModelRecognition(MODEL_DETECT_PATH, MODEL_RECOG_PATH, DB_CSV_PATH, DB_IMAGE_PATH)
-
         self.add_webcam(self.webcam_label)
         self.last_capture_face = None
 
@@ -156,7 +157,7 @@ class App:
                 # ten nguoi dung
                 result_name = self.model_recog.predict(face)
                 if result_name is not None:
-                    print("ok")
+                    #print(result_name)
                     if self.first_time_discovering_a_person_with_permission == -1:
                         self.first_time_discovering_a_person_with_permission = datetime.now()
                     else:
