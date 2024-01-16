@@ -19,6 +19,7 @@ import torch
 from model_handler import ModelAntiSpoffing, ModelRecogDeepFace, ModelRecognition
 import os
 from tkinter import messagebox
+import threading
 
 CRR_PATH = os.curdir
 
@@ -30,11 +31,28 @@ MODEL_ANTI_PATH = 'antispoof.pt'
 DB_IMAGE_PATH = 'db/image-data'
 DB_CSV_PATH = 'db/db.csv'
 
-url = 'http://192.168.0.114/cam-lo.jpg'
 IS_REGISTER = False
+CAN_SEND_TO_TELE = False
+door_state = util.DOOR_CLOSED
+bell_state = util.BELL_OFF
+currFrame = None
 
-is_ringing = False
-is_opening = False
+
+def announce_detection():
+    global CAN_SEND_TO_TELE, currFrame
+    while 1:
+        if CAN_SEND_TO_TELE:
+            CAN_SEND_TO_TELE = False
+            util.send_notification(currFrame)
+        time.sleep(25)
+
+
+def sync_state():
+    global door_state, bell_state
+    while 1:
+        door_state = util.get_door_state()
+        bell_state = util.get_bell_state()
+        time.sleep(1)
 
 
 class App:
@@ -80,6 +98,11 @@ class App:
         self.add_webcam(self.webcam_label)
         self.last_capture_face = None
 
+        t1 = threading.Thread(target=sync_state)
+        t2 = threading.Thread(target=announce_detection)
+        t1.start()
+        t2.start()
+
         # self.db_dir = './db'
         # if not os.path.exists(self.db_dir):
         #     os.mkdir(self.db_dir)
@@ -101,7 +124,6 @@ class App:
         return delta.seconds
 
     def process_webcam(self):
-        global is_ringing, is_opening
         ret, frame = self.cap.read()
         # if frame is not None:
         # ret, frame = self.cap.read()
@@ -111,20 +133,22 @@ class App:
         # frame = np.array(Image.open(BytesIO(response.content)))
         # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
         # print(frame.shape)
-        if is_ringing:
+
+        global CAN_SEND_TO_TELE
+        global bell_state, door_state, currFrame
+        if bell_state == util.BELL_ON:
             print("bell is ringing")
+            currFrame = frame
+            CAN_SEND_TO_TELE = True
         else:
             print("bell is not ringing")
-        if is_opening:
+        if door_state == util.DOOR_OPENED:
             print("door is opening")
         else:
             print("door is closing")
         if IS_REGISTER:
             return
         if frame is not None:
-
-            # Handle logic cua mo hay dong
-
             # Mat real, Mat fake
             image_moded, face = self.anti_spoof_model.detect(frame)
             # print(self.first_time_discovering_a_person_without_permission, self.last_time_discovering_a_person_without_permission)
@@ -136,19 +160,19 @@ class App:
                                   self.last_time_discovering_a_person_with_permission) > self.clear_wait_time:
                 self.first_time_discovering_a_person_with_permission = self.last_time_discovering_a_person_with_permission = -1
 
-            if is_opening == False and is_ringing == False and self.get_diff_time(datetime.now(),
+            if door_state == util.DOOR_CLOSED and bell_state == util.BELL_OFF and self.get_diff_time(datetime.now(),
                                                                                   self.last_time_allow_alarm) <= self.alarm_time:
-                is_ringing = True
-            if is_ringing == True and self.get_diff_time(datetime.now(),
+                util.set_bell_state(util.BELL_ON)
+            if bell_state == util.BELL_ON and self.get_diff_time(datetime.now(),
                                                          self.last_time_allow_alarm) > self.alarm_time:
-                is_ringing = False
-
-            if is_ringing == False and is_opening == False and self.get_diff_time(datetime.now(),
+                util.set_bell_state(util.BELL_OFF)
+            if bell_state == util.BELL_OFF and door_state == util.DOOR_CLOSED and self.get_diff_time(datetime.now(),
                                                                                   self.last_time_allow_open_door) <= self.open_door_time:
-                is_opening = True
-            if is_opening == True and self.get_diff_time(datetime.now(),
+                util.set_door_state(util.DOOR_OPENED)
+            if door_state == util.DOOR_OPENED and self.get_diff_time(datetime.now(),
                                                          self.last_time_allow_open_door) > self.open_door_time:
-                is_opening = False
+                util.set_door_state(util.DOOR_CLOSED)
+            
             if face is not None:
                 # neu mat real
                 # self.register_new_user_button_main_window.config(state=tk.NORMAL)
