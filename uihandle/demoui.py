@@ -33,8 +33,8 @@ DB_CSV_PATH = 'db/db.csv'
 
 IS_REGISTER = False
 CAN_SEND_TO_TELE = False
-door_state = util.DOOR_CLOSED
-bell_state = util.BELL_OFF
+door_state = util.get_door_state()
+bell_state = util.get_bell_state()
 currFrame = None
 
 
@@ -44,15 +44,17 @@ def announce_detection():
         if CAN_SEND_TO_TELE:
             CAN_SEND_TO_TELE = False
             util.send_notification(currFrame)
-        time.sleep(25)
+        time.sleep(5)
 
 
 def sync_state():
     global door_state, bell_state
     while 1:
-        door_state = util.get_door_state()
-        bell_state = util.get_bell_state()
-        time.sleep(1)
+        util.set_door_state(door_state)
+        util.set_bell_state(bell_state)
+        # door_state = util.get_door_state()
+        # bell_state = util.get_bell_state()
+        time.sleep(1.5)
 
 
 class App:
@@ -162,16 +164,20 @@ class App:
 
             if door_state == util.DOOR_CLOSED and bell_state == util.BELL_OFF and self.get_diff_time(datetime.now(),
                                                                                   self.last_time_allow_alarm) <= self.alarm_time:
-                util.set_bell_state(util.BELL_ON)
+                # util.set_bell_state(util.BELL_ON)
+                bell_state = util.BELL_ON
             if bell_state == util.BELL_ON and self.get_diff_time(datetime.now(),
                                                          self.last_time_allow_alarm) > self.alarm_time:
-                util.set_bell_state(util.BELL_OFF)
+                # util.set_bell_state(util.BELL_OFF)
+                bell_state = util.BELL_OFF
             if bell_state == util.BELL_OFF and door_state == util.DOOR_CLOSED and self.get_diff_time(datetime.now(),
                                                                                   self.last_time_allow_open_door) <= self.open_door_time:
-                util.set_door_state(util.DOOR_OPENED)
+                # util.set_door_state(util.DOOR_OPENED)
+                door_state = util.DOOR_OPENED
             if door_state == util.DOOR_OPENED and self.get_diff_time(datetime.now(),
                                                          self.last_time_allow_open_door) > self.open_door_time:
-                util.set_door_state(util.DOOR_CLOSED)
+                # util.set_door_state(util.DOOR_CLOSED)
+                door_state = util.DOOR_CLOSED
             
             if face is not None:
                 # neu mat real
@@ -181,7 +187,7 @@ class App:
                 # ten nguoi dung
                 result_name = self.model_recog.predict(face)
                 if result_name is not None:
-                    #print(result_name)
+                    print(result_name)
                     if self.first_time_discovering_a_person_with_permission == -1:
                         self.first_time_discovering_a_person_with_permission = datetime.now()
                     else:
