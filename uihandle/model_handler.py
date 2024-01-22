@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 from scipy.spatial.distance import cosine
-
+tf.keras.utils.disable_interactive_logging()
 class ModelAntiSpoffing:
     def __init__(self, asmodelpath, confidence=0.8):
         self._model = YOLO(asmodelpath)
@@ -16,14 +16,14 @@ class ModelAntiSpoffing:
         self._classNames = ['device', 'live', 'mask', 'photo']
         self._offsetPercentageW = 0.2
         self._offsetPercentageH = 0.3
-    def detect(self, image):
+    def detect(self, _image):
         """
         image: image in format BGR
         return:
             + image ORIGINAL with green box have the HIGHEST conf label is 'live'
             + image above but only contain face
         """
-
+        image = _image.copy()
         results = self._model(image, stream=True, verbose=False)
         face_human, highest_conf = None, 0
         for r in results:
@@ -65,8 +65,7 @@ class ModelAntiSpoffing:
 
 class ModelDetectorFace:
     def __init__(self, model_path):
-        self._model = cv2.FaceDetectorYN_create(model_path, "", (0, 0))
-        self._model.setScoreThreshold(0.87)
+        self._model = cv2.FaceDetectorYN_create(model_path, "", (0, 0), target_id=1)
         self.__scaling_size = 320
 
     def __format_image(self, image):
@@ -92,8 +91,6 @@ class ModelDetectorFace:
 class ModelRecognition:
     def __init__(self, model_detect_path, model_recog_path, db_path, db_img, threshold=0.1):
         self._model_recog = cv2.FaceRecognizerSF_create(model_recog_path, "")
-        # self._device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # self._model.to(self._device)
         self._model_detect = ModelDetectorFace(model_detect_path)
         self._threshold = threshold
         self._db_path = db_path
@@ -102,6 +99,10 @@ class ModelRecognition:
     def __distance(self, encode_input, encode_user):
         score = self._model_recog.match(encode_input, encode_user, cv2.FaceRecognizerSF_FR_NORM_L2)
         return score
+    def verify_face(self, image):
+        if image is None:
+            return None 
+        return 
 
     def predict(self, image):
         """
@@ -218,3 +219,71 @@ class ModelRecogDeepFace:
         df = pd.read_csv(self._db_path)
         df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
         df.to_csv(self._db_path, index=False) 
+
+
+class ModelFaceOpenCV:
+    def __init__(self, model_detect_path, model_recog_path, db_path, db_img, threshold=0.1):
+        self._model_recog = cv2.FaceRecognizerSF_create(model_recog_path, "")
+        self._model_detect = cv2.FaceDetectorYN_create(model_detect_path, "", (0, 0))
+        self._threshold = threshold
+        self._db_path = db_path
+        self._db_img = db_img
+
+    def verify_face(self, image):
+        if image is None:
+            return None
+        h, w, _ = image.shape
+        self._model_detect.setInputSize((w, h))
+        result, faces = self._model_detect.detect(image)
+
+        if faces is None:
+            return None, None
+        #print(faces)
+        max_conf = max(faces, key=lambda x : x[-1])
+        align_face = self._model_recog.alignCrop(image, max_conf)
+        embedding = self._model_recog.feature(align_face)
+
+        return align_face, embedding
+    
+    def match_face(self, embedding_input):
+        if embedding_input is None:
+            print('wtf')
+            return None
+
+        users = pd.read_csv(self._db_path)
+        greate_score_person = 0
+        matches_person = None
+        for index, row in users.iterrows():
+            image_path = os.path.join(self._db_img, row['Image'])
+            image_user = cv2.imread(image_path)
+
+            embeeding_db = self._model_recog.feature(image_user)
+            if embeeding_db is not None:
+                score = self._model_recog.match(embedding_input, embeeding_db, cv2.FaceRecognizerSF_FR_COSINE)
+                if score > greate_score_person and score > self._threshold:
+                    greate_score_person = score
+                    matches_person = row
+            else:
+                print(f'Image of {row["Name"]} is not correct')
+
+        if matches_person is None:
+            return None
+
+        if matches_person["Permission"] == 0:
+            return None
+        #print(greate_score_person)
+        return matches_person["Name"]
+    
+    def save_data_user(self, image, name):
+        if image is None:
+            print('Image is unreal')
+            return
+        name_format = name.split(' ')[-1] + '.png'
+        name_path = os.path.join(self._db_img, name_format)
+        # name_path = name_format
+        cv2.imwrite(name_path, image)
+        print(name_path)
+        new_row_data = {'Name': name, 'Image': name_format, 'Permission': 1}
+        df = pd.read_csv(self._db_path)
+        df = pd.concat([df, pd.DataFrame([new_row_data])], ignore_index=True)
+        df.to_csv(self._db_path, index=False)
