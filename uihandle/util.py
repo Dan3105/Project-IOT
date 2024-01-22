@@ -1,6 +1,8 @@
 import os
 import pickle
 import io
+import time
+
 import cv2
 
 import tkinter as tk
@@ -71,6 +73,8 @@ def send_notification(_frame):
     text_message = "Strange human!"
     text_url = f"https://api.telegram.org/bot{bot_token}/sendMessage?chat_id={chat_id}&text={text_message}"
     requests.get(text_url)
+
+    time.sleep(30)
 
 
 def get_button(window, text, color, command, fg='white'):
