@@ -16,7 +16,7 @@ import cv2
 from PIL import Image, ImageTk
 import util
 import torch
-from model_handler import ModelAntiSpoffing, ModelRecogDeepFace, ModelRecognition
+from model_handler import ModelAntiSpoffing, ModelFaceOpenCV, ModelRecognition
 import os
 from tkinter import messagebox
 import threading
@@ -33,8 +33,8 @@ DB_CSV_PATH = 'db/db.csv'
 
 IS_REGISTER = False
 CAN_SEND_TO_TELE = False
-door_state = util.get_door_state()
-bell_state = util.get_bell_state()
+door_state = 0#util.get_door_state()
+bell_state = 0#util.get_bell_state()
 currFrame = None
 
 
@@ -95,15 +95,14 @@ class App:
         self.webcam_label.place(x=10, y=0, width=700, height=500)
 
         self.anti_spoof_model = ModelAntiSpoffing(MODEL_ANTI_PATH)
-        #self.model_recog = ModelRecogDeepFace(MODEL_RECOG_DEEP_PATH, DB_CSV_PATH, DB_IMAGE_PATH)
-        self.model_recog = ModelRecognition(MODEL_DETECT_PATH, MODEL_RECOG_PATH, DB_CSV_PATH, DB_IMAGE_PATH)
+        self.model_recog = ModelFaceOpenCV(MODEL_DETECT_PATH, MODEL_RECOG_PATH, DB_CSV_PATH, DB_IMAGE_PATH, threshold=0.3)
         self.add_webcam(self.webcam_label)
         self.last_capture_face = None
 
         t1 = threading.Thread(target=sync_state)
         t2 = threading.Thread(target=announce_detection)
-        t1.start()
-        t2.start()
+        #t1.start()
+        #t2.start()
 
         # self.db_dir = './db'
         # if not os.path.exists(self.db_dir):
@@ -138,21 +137,22 @@ class App:
 
         global CAN_SEND_TO_TELE
         global bell_state, door_state, currFrame
-        if bell_state == util.BELL_ON:
-            print("bell is ringing")
-            currFrame = frame
-            CAN_SEND_TO_TELE = True
-        else:
-            print("bell is not ringing")
-        if door_state == util.DOOR_OPENED:
-            print("door is opening")
-        else:
-            print("door is closing")
+        # if bell_state == util.BELL_ON:
+        #     #print("bell is ringing")
+        #     currFrame = frame
+        #     CAN_SEND_TO_TELE = True
+        # else:
+        #     #print("bell is not ringing")
+        # if door_state == util.DOOR_OPENED:
+        #     print("door is opening")
+        # else:
+        #     print("door is closing")
         if IS_REGISTER:
             return
         if frame is not None:
             # Mat real, Mat fake
-            image_moded, face = self.anti_spoof_model.detect(frame)
+            align_face, embedding = self.model_recog.verify_face(frame)
+            image_moded, living_face = self.anti_spoof_model.detect(frame)
             # print(self.first_time_discovering_a_person_without_permission, self.last_time_discovering_a_person_without_permission)
             if self.get_diff_time(datetime.now(),
                                   self.last_time_discovering_a_person_without_permission) > self.clear_wait_time:
@@ -179,13 +179,13 @@ class App:
                 # util.set_door_state(util.DOOR_CLOSED)
                 door_state = util.DOOR_CLOSED
             
-            if face is not None:
+            if living_face is not None and align_face is not None:
                 # neu mat real
                 # self.register_new_user_button_main_window.config(state=tk.NORMAL)
                 self.register_new_user_button_main_window['state'] = tk.NORMAL
-                self.last_capture_face = face
+                self.last_capture_face = align_face
                 # ten nguoi dung
-                result_name = self.model_recog.predict(face)
+                result_name = self.model_recog.match_face(embedding)
                 if result_name is not None:
                     print(result_name)
                     if self.first_time_discovering_a_person_with_permission == -1:
@@ -196,7 +196,6 @@ class App:
                                               self.first_time_discovering_a_person_with_permission) > self.open_door_wait_time:
                             self.last_time_allow_open_door = datetime.now()
                 else:
-                    print("not ok")
                     if self.first_time_discovering_a_person_without_permission == -1:
                         self.first_time_discovering_a_person_without_permission = datetime.now()
                     else:
@@ -207,7 +206,7 @@ class App:
             else:
                 # self.register_new_user_button_main_window.config(state=tk.DISABLED)
                 self.register_new_user_button_main_window['state'] = tk.DISABLED
-                self.last_capture_face = None
+                #self.last_capture_face = None
 
             self.most_recent_capture_arr = image_moded
             img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
