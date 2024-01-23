@@ -2,13 +2,13 @@ from ultralytics import YOLO
 import cv2
 import math
 import cvzone
-from deepface import DeepFace
+#from deepface import DeepFace
 import os
 import pandas as pd
 import numpy as np
 import tensorflow as tf
 from scipy.spatial.distance import cosine
-tf.keras.utils.disable_interactive_logging()
+#tf.keras.utils.disable_interactive_logging()
 class ModelAntiSpoffing:
     def __init__(self, asmodelpath, confidence=0.8):
         self._model = YOLO(asmodelpath)
@@ -269,10 +269,10 @@ class ModelFaceOpenCV:
         if matches_person is None:
             return None
 
-        if matches_person["Permission"] == 0:
-            return None
+        # if matches_person["Permission"] == 0:
+        #     return None
         #print(greate_score_person)
-        return matches_person["Name"]
+        return matches_person["Name"], matches_person["Permission"]
     
     def save_data_user(self, image, name):
         if image is None:

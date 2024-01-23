@@ -8,8 +8,8 @@ import cv2
 import tkinter as tk
 from tkinter import messagebox
 
-#import firebase_admin
-#from firebase_admin import credentials, db
+import firebase_admin
+from firebase_admin import credentials, db
 import requests
 
 DOOR_CLOSED, DOOR_OPENED = 0, 1
@@ -17,18 +17,18 @@ BELL_OFF, BELL_ON = 0, 1
 LED_OFF, LED_ON = 0, 1
 
 # Set your bot token and chat ID
-bot_token = "Your token ID"
+bot_token = ""
 chat_id = "Your chat ID"
 
 url = 'http://192.168.0.114/cam-lo.jpg'
 
-# cred = credentials.Certificate("firebaseKey/serviceAccountKey.json")
-# firebase_admin.initialize_app(cred, {
-#     'databaseURL': 'https://thuchanh2-28511-default-rtdb.firebaseio.com/'
-# })
-# ref_door_mode = db.reference("door_mode")
-# ref_bell_mode = db.reference("bell_mode")
-# ref_led_mode = db.reference("led_mode")
+cred = credentials.Certificate("firebaseKey/serviceAccountKey.json")
+firebase_admin.initialize_app(cred, {
+    'databaseURL': 'https://thuchanh2-28511-default-rtdb.firebaseio.com/'
+})
+ref_door_mode = db.reference("door_mode")
+ref_bell_mode = db.reference("bell_mode")
+ref_led_mode = db.reference("led_mode")
 
 
 def get_door_state():

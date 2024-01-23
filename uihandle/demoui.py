@@ -33,9 +33,14 @@ DB_CSV_PATH = 'db/db.csv'
 
 IS_REGISTER = False
 CAN_SEND_TO_TELE = False
-door_state = 0#util.get_door_state()
-bell_state = 0#util.get_bell_state()
+door_state = util.get_door_state()
+bell_state = util.get_bell_state()
 currFrame = None
+
+STATUS_FALSE_TEXT_COLOR = 'red'
+STATUS_TRUE_TEXT_COLOR = 'green'
+STATUS_FALSE_TEXT = "Close"
+STATUS_TRUE_TEXT = "Open"
 
 
 def announce_detection():
@@ -82,10 +87,25 @@ class App:
         # self.logout_button_main_window = util.get_button(self.main_window, 'logout', 'red', self.logout)
         # self.logout_button_main_window.place(x=750, y=300)
 
+        self.person_label = util.get_text_label(self.main_window, "Person Label")
+        self.person_label.place(x=750, y=15)
+
+        self.door_status_label = util.get_text_label(self.main_window, "Door Status:")
+        self.door_status_label.place(x=750, y=150)
+        self.door_status_text = util.get_text_label(self.main_window, "")
+        self.set_status_text(self.door_status_text, door_state)
+        self.door_status_text.place(x=950, y=150)
+
+        self.bell_status_label = util.get_text_label(self.main_window, "Bell Status:")
+        self.bell_status_label.place(x=750, y=200)
+        self.bell_status_text = util.get_text_label(self.main_window, "")
+        self.set_status_text(self.bell_status_text, bell_state)
+        self.bell_status_text.place(x=950, y=200)
+
         self.manage_permission_user_button_main_window = util.get_button(self.main_window, 'Manage permission list',
                                                                          'gray',
                                                                          self.manage_permission_list, fg='black')
-        self.manage_permission_user_button_main_window.place(x=750, y=200)
+        self.manage_permission_user_button_main_window.place(x=750, y=300)
 
         self.register_new_user_button_main_window = util.get_button(self.main_window, 'register new user', 'gray',
                                                                     self.register_new_user, fg='black')
@@ -95,20 +115,27 @@ class App:
         self.webcam_label.place(x=10, y=0, width=700, height=500)
 
         self.anti_spoof_model = ModelAntiSpoffing(MODEL_ANTI_PATH)
-        self.model_recog = ModelFaceOpenCV(MODEL_DETECT_PATH, MODEL_RECOG_PATH, DB_CSV_PATH, DB_IMAGE_PATH, threshold=0.3)
+        self.model_recog = ModelFaceOpenCV(MODEL_DETECT_PATH, MODEL_RECOG_PATH, DB_CSV_PATH, DB_IMAGE_PATH,
+                                           threshold=0.3)
         self.add_webcam(self.webcam_label)
         self.last_capture_face = None
 
         t1 = threading.Thread(target=sync_state)
         t2 = threading.Thread(target=announce_detection)
-        #t1.start()
-        #t2.start()
+        t1.start()
+        t2.start()
 
         # self.db_dir = './db'
         # if not os.path.exists(self.db_dir):
         #     os.mkdir(self.db_dir)
 
         # self.log_path = './log.txt'
+
+    def set_status_text(self, status_text, status):
+        if status:
+            status_text.config(text=STATUS_TRUE_TEXT, background=STATUS_TRUE_TEXT_COLOR)
+        else:
+            status_text.config(text=STATUS_FALSE_TEXT, background=STATUS_FALSE_TEXT_COLOR)
 
     def add_webcam(self, label):
         # phan nay nhan cam
@@ -126,96 +153,94 @@ class App:
 
     def process_webcam(self):
         ret, frame = self.cap.read()
-        # if frame is not None:
-        # ret, frame = self.cap.read()
-        # print(frame.shape)
-
-        # response = requests.get(url)
-        # frame = np.array(Image.open(BytesIO(response.content)))
-        # frame = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-        # print(frame.shape)
 
         global CAN_SEND_TO_TELE
         global bell_state, door_state, currFrame
-        # if bell_state == util.BELL_ON:
-        #     #print("bell is ringing")
-        #     currFrame = frame
-        #     CAN_SEND_TO_TELE = True
-        # else:
-        #     #print("bell is not ringing")
-        # if door_state == util.DOOR_OPENED:
-        #     print("door is opening")
-        # else:
-        #     print("door is closing")
-        if IS_REGISTER:
-            return
-        if frame is not None:
-            # Mat real, Mat fake
-            align_face, embedding = self.model_recog.verify_face(frame)
-            image_moded, living_face = self.anti_spoof_model.detect(frame)
-            # print(self.first_time_discovering_a_person_without_permission, self.last_time_discovering_a_person_without_permission)
-            if self.get_diff_time(datetime.now(),
-                                  self.last_time_discovering_a_person_without_permission) > self.clear_wait_time:
-                self.first_time_discovering_a_person_without_permission = self.last_time_discovering_a_person_without_permission = -1
 
-            if self.get_diff_time(datetime.now(),
-                                  self.last_time_discovering_a_person_with_permission) > self.clear_wait_time:
-                self.first_time_discovering_a_person_with_permission = self.last_time_discovering_a_person_with_permission = -1
+        if self.allow_detect:
+            if frame is not None:
+                self.person_label.config(text="Face cannot be detected")
+                # Mat real, Mat fake
+                align_face, embedding = self.model_recog.verify_face(frame)
+                image_moded, living_face = self.anti_spoof_model.detect(frame)
+                # print(self.first_time_discovering_a_person_without_permission, self.last_time_discovering_a_person_without_permission)
+                if self.get_diff_time(datetime.now(),
+                                      self.last_time_discovering_a_person_without_permission) > self.clear_wait_time:
+                    self.first_time_discovering_a_person_without_permission = self.last_time_discovering_a_person_without_permission = -1
 
-            if door_state == util.DOOR_CLOSED and bell_state == util.BELL_OFF and self.get_diff_time(datetime.now(),
-                                                                                  self.last_time_allow_alarm) <= self.alarm_time:
-                # util.set_bell_state(util.BELL_ON)
-                bell_state = util.BELL_ON
-            if bell_state == util.BELL_ON and self.get_diff_time(datetime.now(),
-                                                         self.last_time_allow_alarm) > self.alarm_time:
-                # util.set_bell_state(util.BELL_OFF)
-                bell_state = util.BELL_OFF
-            if bell_state == util.BELL_OFF and door_state == util.DOOR_CLOSED and self.get_diff_time(datetime.now(),
-                                                                                  self.last_time_allow_open_door) <= self.open_door_time:
-                # util.set_door_state(util.DOOR_OPENED)
-                door_state = util.DOOR_OPENED
-            if door_state == util.DOOR_OPENED and self.get_diff_time(datetime.now(),
-                                                         self.last_time_allow_open_door) > self.open_door_time:
-                # util.set_door_state(util.DOOR_CLOSED)
-                door_state = util.DOOR_CLOSED
-            
-            if living_face is not None and align_face is not None:
-                # neu mat real
-                # self.register_new_user_button_main_window.config(state=tk.NORMAL)
-                self.register_new_user_button_main_window['state'] = tk.NORMAL
-                self.last_capture_face = align_face
-                # ten nguoi dung
-                result_name = self.model_recog.match_face(embedding)
-                if result_name is not None:
-                    print(result_name)
-                    if self.first_time_discovering_a_person_with_permission == -1:
-                        self.first_time_discovering_a_person_with_permission = datetime.now()
-                    else:
-                        self.last_time_discovering_a_person_with_permission = datetime.now()
-                        if self.get_diff_time(self.last_time_discovering_a_person_with_permission,
-                                              self.first_time_discovering_a_person_with_permission) > self.open_door_wait_time:
-                            self.last_time_allow_open_door = datetime.now()
-                else:
-                    if self.first_time_discovering_a_person_without_permission == -1:
-                        self.first_time_discovering_a_person_without_permission = datetime.now()
-                    else:
-                        self.last_time_discovering_a_person_without_permission = datetime.now()
-                        if self.get_diff_time(self.last_time_discovering_a_person_without_permission,
-                                              self.first_time_discovering_a_person_without_permission) > self.warning_wait_time:
-                            self.last_time_allow_alarm = datetime.now()
-            else:
-                # self.register_new_user_button_main_window.config(state=tk.DISABLED)
+                if self.get_diff_time(datetime.now(),
+                                      self.last_time_discovering_a_person_with_permission) > self.clear_wait_time:
+                    self.first_time_discovering_a_person_with_permission = self.last_time_discovering_a_person_with_permission = -1
+
+                if door_state == util.DOOR_CLOSED and bell_state == util.BELL_OFF and self.get_diff_time(datetime.now(),
+                                                                                                         self.last_time_allow_alarm) <= self.alarm_time:
+                    # util.set_bell_state(util.BELL_ON)
+                    bell_state = util.BELL_ON
+                    currFrame = frame
+                    CAN_SEND_TO_TELE = True
+                    self.set_status_text(self.bell_status_text, bell_state)
+
+                if bell_state == util.BELL_ON and self.get_diff_time(datetime.now(),
+                                                                     self.last_time_allow_alarm) > self.alarm_time:
+                    # util.set_bell_state(util.BELL_OFF)
+                    bell_state = util.BELL_OFF
+                    self.set_status_text(self.bell_status_text, bell_state)
+                if bell_state == util.BELL_OFF and door_state == util.DOOR_CLOSED and self.get_diff_time(datetime.now(),
+                                                                                                         self.last_time_allow_open_door) <= self.open_door_time:
+                    # util.set_door_state(util.DOOR_OPENED)
+                    door_state = util.DOOR_OPENED
+                    self.set_status_text(self.door_status_text, door_state)
+                if door_state == util.DOOR_OPENED and self.get_diff_time(datetime.now(),
+                                                                         self.last_time_allow_open_door) > self.open_door_time:
+                    # util.set_door_state(util.DOOR_CLOSED)
+                    door_state = util.DOOR_CLOSED
+                    self.set_status_text(self.door_status_text, door_state)
                 self.register_new_user_button_main_window['state'] = tk.DISABLED
-                #self.last_capture_face = None
+                if living_face is not None and align_face is not None:
+                    # neu mat real
+                    # self.register_new_user_button_main_window.config(state=tk.NORMAL)
 
-            self.most_recent_capture_arr = image_moded
-            img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
-            self.most_recent_capture_pil = Image.fromarray(img_)
+                    self.last_capture_face = align_face
+                    # ten nguoi dung
+                    result_name, has_permission = None, None
+                    result = self.model_recog.match_face(embedding)
+                    if result is not None:
+                        result_name, has_permission = result
+                    if result_name is not None and has_permission:
+                        self.person_label.config(text=f"'{result_name}' is found")
+                        if self.first_time_discovering_a_person_with_permission == -1:
+                            self.first_time_discovering_a_person_with_permission = datetime.now()
+                        else:
+                            self.last_time_discovering_a_person_with_permission = datetime.now()
+                            if self.get_diff_time(self.last_time_discovering_a_person_with_permission,
+                                                  self.first_time_discovering_a_person_with_permission) > self.open_door_wait_time:
+                                self.last_time_allow_open_door = datetime.now()
+                    else:
+                        if result_name is None:
+                            self.person_label.config(text="This person is a stranger")
+                            self.register_new_user_button_main_window['state'] = tk.NORMAL
+                        else:
+                            self.person_label.config(text=f"'{result_name}' does not have permission")
 
-            imgtk = ImageTk.PhotoImage(image=self.most_recent_capture_pil)
-            self._label.imgtk = imgtk
-            self._label.configure(image=imgtk)
+                        if self.first_time_discovering_a_person_without_permission == -1:
+                            self.first_time_discovering_a_person_without_permission = datetime.now()
+                        else:
+                            self.last_time_discovering_a_person_without_permission = datetime.now()
+                            if self.get_diff_time(self.last_time_discovering_a_person_without_permission,
+                                                  self.first_time_discovering_a_person_without_permission) > self.warning_wait_time:
+                                self.last_time_allow_alarm = datetime.now()
+                # else:
+                # self.register_new_user_button_main_window.config(state=tk.DISABLED)
+                # self.register_new_user_button_main_window['state'] = tk.DISABLED
+                # self.last_capture_face = None
 
+                self.most_recent_capture_arr = image_moded
+                img_ = cv2.cvtColor(self.most_recent_capture_arr, cv2.COLOR_BGR2RGB)
+                self.most_recent_capture_pil = Image.fromarray(img_)
+
+                imgtk = ImageTk.PhotoImage(image=self.most_recent_capture_pil)
+                self._label.imgtk = imgtk
+                self._label.configure(image=imgtk)
         self._label.after(20, self.process_webcam)
 
     def login(self):
@@ -246,7 +271,6 @@ class App:
     def register_new_user(self):
         if self.last_capture_face is None:
             return
-        IS_REGISTER = True
 
         self.register_new_user_window = tk.Toplevel(self.main_window)
         self.register_new_user_window.geometry("1200x520+370+120")
@@ -274,12 +298,12 @@ class App:
                                                                 'Please, \ninput username:')
         self.text_label_register_new_user.place(x=750, y=70)
 
-
-
     def manage_permission_list(self):
         self.manage_permission_list_window = tk.Toplevel(self.main_window)
         self.manage_permission_list_window.geometry("1200x520+370+120")
         self.manage_permission_list_window.title("Manage Permission List")
+        self.manage_permission_list_window.bind("<Visibility>", self.on_openning)
+        self.manage_permission_list_window.bind("<Destroy>", self.on_closing)
 
         self.manage_permission_list_main_frame = Frame(self.manage_permission_list_window)
         self.manage_permission_list_main_frame.pack(fill=BOTH, expand=1)
@@ -297,7 +321,8 @@ class App:
 
         self.manage_permission_list_show_frame = Frame(self.manage_permission_list_canvas)
 
-        self.manage_permission_list_canvas.create_window((0, 0), window=self.manage_permission_list_show_frame, anchor="nw")
+        self.manage_permission_list_canvas.create_window((0, 0), window=self.manage_permission_list_show_frame,
+                                                         anchor="nw")
         self.label_list = list()
         self.manage_permission_list_reload_window()
 
@@ -320,7 +345,7 @@ class App:
         self.df = pd.read_csv(DB_CSV_PATH)
         photos = [ImageTk.PhotoImage(Image.open(DB_IMAGE_PATH + '/' + img_url)) for img_url in
                   self.df[self.df.columns[1]].values.tolist()]
-        print(photos)
+        self.label_list = list()
         for row in range(len(photos)):
             name = self.df.iloc[row, 0]
             permission = self.df.iloc[row, 2]
@@ -363,7 +388,6 @@ class App:
                 util.msg_box('Success!', 'User was registered successfully !')
         except Exception as e:
             print(e)
-        IS_REGISTER = False
         self.register_new_user_window.destroy()
 
 
