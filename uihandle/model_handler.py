@@ -10,7 +10,7 @@ import tensorflow as tf
 from scipy.spatial.distance import cosine
 #tf.keras.utils.disable_interactive_logging()
 class ModelAntiSpoffing:
-    def __init__(self, asmodelpath, confidence=0.8):
+    def __init__(self, asmodelpath, confidence=0.7):
         self._model = YOLO(asmodelpath)
         self._confidence = confidence
         self._classNames = ['device', 'live', 'mask', 'photo']

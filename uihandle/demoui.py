@@ -54,7 +54,7 @@ def announce_detection():
 
 def sync_state():
     global door_state, bell_state
-    while 1:
+    while 1:    
         util.set_door_state(door_state)
         util.set_bell_state(bell_state)
         # door_state = util.get_door_state()
@@ -78,7 +78,7 @@ class App:
         self.open_door_time = 7
         self.photos = list()
         self.main_window = tk.Tk()
-        self.main_window.geometry("1200x520")
+        self.main_window.geometry("1250x520")
         self.df = pd.read_csv(DB_CSV_PATH)
 
         # self.login_button_main_window = util.get_button(self.main_window, 'login', 'green', self.login)
@@ -243,11 +243,6 @@ class App:
                 self._label.configure(image=imgtk)
         self._label.after(20, self.process_webcam)
 
-    def login(self):
-        pass
-
-    def logout(self):
-        pass
 
     def validate_text(self, event):
         start = "1.0"
@@ -273,7 +268,7 @@ class App:
             return
 
         self.register_new_user_window = tk.Toplevel(self.main_window)
-        self.register_new_user_window.geometry("1200x520+370+120")
+        self.register_new_user_window.geometry("1200x520")
         self.register_new_user_window.bind("<Visibility>", self.on_openning)
         self.register_new_user_window.bind("<Destroy>", self.on_closing)
         # self.register_new_user_window.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -300,7 +295,7 @@ class App:
 
     def manage_permission_list(self):
         self.manage_permission_list_window = tk.Toplevel(self.main_window)
-        self.manage_permission_list_window.geometry("1200x520+370+120")
+        self.manage_permission_list_window.geometry("1200x520")
         self.manage_permission_list_window.title("Manage Permission List")
         self.manage_permission_list_window.bind("<Visibility>", self.on_openning)
         self.manage_permission_list_window.bind("<Destroy>", self.on_closing)
